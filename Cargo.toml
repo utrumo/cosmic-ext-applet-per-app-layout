@@ -1,0 +1,61 @@
+[package]
+name = "cosmic-keyboard-context"
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0"
+authors = ["devpa"]
+description = "COSMIC panel applet for per-app keyboard layout memory"
+
+[profile.release]
+lto = "fat"
+strip = true
+
+[dependencies]
+# COSMIC applet framework
+libcosmic = { git = "https://github.com/pop-os/libcosmic.git", default-features = false, features = [
+    "applet",
+] }
+
+# Async runtime
+tokio = { version = "1", features = ["macros", "rt-multi-thread", "sync", "time"] }
+futures = "0.3"
+
+# Serialization
+serde = { version = "1", features = ["derive"] }
+ron = "0.8"
+
+# Error handling
+anyhow = "1"
+
+# Logging
+tracing = { version = "0.1", default-features = false, features = ["log"] }
+tracing-subscriber = { version = "0.3", default-features = false, features = [
+    "ansi",
+    "env-filter",
+    "fmt",
+] }
+
+# i18n
+i18n-embed = { version = "0.16", default-features = false, features = [
+    "rust-embed",
+    "fluent-system",
+    "desktop-requester",
+] }
+i18n-embed-fl = { version = "0.10", default-features = false }
+rust-embed = { version = "8.11", default-features = false }
+
+# Wayland/X11 connection
+wayland-client = "0.30"
+calloop = "0.13"
+calloop-wayland-source = "0.3"
+
+# COSMIC Wayland protocols and client toolkit
+cosmic-client-toolkit = { git = "https://github.com/pop-os/cosmic-protocols.git", default-features = false }
+cosmic-protocols = { git = "https://github.com/pop-os/cosmic-protocols.git", default-features = false }
+
+# COSMIC config for xkb_config read/write
+cosmic-config = { git = "https://github.com/pop-os/libcosmic.git", default-features = false }
+
+[[bin]]
+name = "cosmic-keyboard-context"
+path = "src/main.rs"

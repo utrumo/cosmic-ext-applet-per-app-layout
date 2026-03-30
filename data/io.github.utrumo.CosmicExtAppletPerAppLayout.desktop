@@ -1,0 +1,12 @@
+[Desktop Entry]
+Name=Keyboard Context
+Type=Application
+Icon=io.github.utrumo.CosmicKeyboardContext-symbolic
+Exec=cosmic-keyboard-context
+Terminal=false
+StartupNotify=true
+NoDisplay=true
+Categories=COSMIC;Utility;
+Keywords=keyboard;layout;language;
+X-CosmicApplet=true
+X-CosmicHoverPopup=Auto
