@@ -19,6 +19,38 @@ pub(crate) struct AppData {
     pub output_state: OutputState,
     pub toplevel_info_state: ToplevelInfoState,
     pub tx: mpsc::UnboundedSender<WaylandUpdate>,
+    pub last_focused_app: Option<String>,
+    pub last_focus_time: Option<std::time::Instant>,
+}
+
+impl AppData {
+    fn send_focus(&mut self, app_id: &str, identifier: &str) {
+        let key = if identifier.is_empty() {
+            app_id.to_string()
+        } else {
+            identifier.to_string()
+        };
+
+        if self.last_focused_app.as_deref() == Some(&key) {
+            return;
+        }
+
+        // Debounce: only first event in 100ms window
+        let now = std::time::Instant::now();
+        if let Some(last_time) = self.last_focus_time {
+            if now.duration_since(last_time) < std::time::Duration::from_millis(100) {
+                return;
+            }
+        }
+
+        tracing::info!("Focus: app_id='{}', id='{}'", app_id, key);
+        self.last_focused_app = Some(key.clone());
+        self.last_focus_time = Some(now);
+        let _ = self.tx.send(WaylandUpdate::Focused {
+            app_id: app_id.to_string(),
+            identifier: key,
+        });
+    }
 }
 
 impl ProvidesRegistryState for AppData {
@@ -70,17 +102,12 @@ impl ToplevelInfoHandler for AppData {
         _qh: &QueueHandle<Self>,
         toplevel: &ext_foreign_toplevel_handle_v1::ExtForeignToplevelHandleV1,
     ) {
-        if let Some(info) = self.toplevel_info_state.info(toplevel) {
-            tracing::debug!("New toplevel: app_id={}, title={}", info.app_id, info.title);
-            if info
-                .state
-                .contains(&zcosmic_toplevel_handle_v1::State::Activated)
-            {
-                let _ = self.tx.send(WaylandUpdate::Focused {
-                    app_id: info.app_id.clone(),
-                    title: info.title.clone(),
-                });
-            }
+        let data = self.toplevel_info_state.info(toplevel).map(|info| {
+            let activated = info.state.contains(&zcosmic_toplevel_handle_v1::State::Activated);
+            (info.app_id.clone(), info.identifier.clone(), activated)
+        });
+        if let Some((app_id, identifier, true)) = data {
+            self.send_focus(&app_id, &identifier);
         }
     }
 
@@ -90,21 +117,12 @@ impl ToplevelInfoHandler for AppData {
         _qh: &QueueHandle<Self>,
         toplevel: &ext_foreign_toplevel_handle_v1::ExtForeignToplevelHandleV1,
     ) {
-        if let Some(info) = self.toplevel_info_state.info(toplevel) {
-            if info
-                .state
-                .contains(&zcosmic_toplevel_handle_v1::State::Activated)
-            {
-                tracing::debug!(
-                    "Toplevel focused: app_id={}, title={}",
-                    info.app_id,
-                    info.title
-                );
-                let _ = self.tx.send(WaylandUpdate::Focused {
-                    app_id: info.app_id.clone(),
-                    title: info.title.clone(),
-                });
-            }
+        let data = self.toplevel_info_state.info(toplevel).map(|info| {
+            let activated = info.state.contains(&zcosmic_toplevel_handle_v1::State::Activated);
+            (info.app_id.clone(), info.identifier.clone(), activated)
+        });
+        if let Some((app_id, identifier, true)) = data {
+            self.send_focus(&app_id, &identifier);
         }
     }
 
@@ -115,11 +133,7 @@ impl ToplevelInfoHandler for AppData {
         toplevel: &ext_foreign_toplevel_handle_v1::ExtForeignToplevelHandleV1,
     ) {
         if let Some(info) = self.toplevel_info_state.info(toplevel) {
-            tracing::debug!(
-                "Toplevel closed: app_id={}, title={}",
-                info.app_id,
-                info.title
-            );
+            tracing::debug!("Toplevel closed: app_id={}", info.app_id);
         }
     }
 }

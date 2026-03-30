@@ -3,6 +3,7 @@ mod i18n;
 mod wayland_handler;
 mod wayland_state;
 mod wayland_subscription;
+mod xkb;
 
 fn main() -> cosmic::iced::Result {
     tracing_subscriber::fmt()

@@ -15,9 +15,8 @@ fn wayland_stream() -> impl futures::Stream<Item = Message> {
 
     futures::stream::unfold(rx, |mut rx: mpsc::UnboundedReceiver<WaylandUpdate>| async move {
         match rx.recv().await {
-            Some(WaylandUpdate::Focused { app_id, title: _ }) => {
-                let message = Message::ToplevelFocused(app_id.clone());
-                Some((message, rx))
+            Some(WaylandUpdate::Focused { app_id, identifier }) => {
+                Some((Message::ToplevelFocused { app_id, identifier }, rx))
             }
             None => None,
         }

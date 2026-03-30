@@ -18,7 +18,7 @@ use crate::wayland_state::AppData;
 
 #[derive(Debug, Clone)]
 pub enum WaylandUpdate {
-    Focused { app_id: String, title: String },
+    Focused { app_id: String, identifier: String },
 }
 
 pub fn spawn_wayland_handler(
@@ -77,6 +77,8 @@ fn run_wayland_loop(tx: mpsc::UnboundedSender<WaylandUpdate>) -> anyhow::Result<
         output_state: OutputState::new(&globals, &qh),
         toplevel_info_state,
         tx,
+        last_focused_app: None,
+        last_focus_time: None,
     };
 
     loop {
