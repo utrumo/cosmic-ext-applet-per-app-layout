@@ -1,6 +1,7 @@
 mod app;
 mod i18n;
 mod wayland_handler;
+mod wayland_state;
 mod wayland_subscription;
 
 fn main() -> cosmic::iced::Result {
