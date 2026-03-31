@@ -28,49 +28,44 @@ per application window.
 ## Requirements
 
 - [COSMIC Desktop Environment](https://github.com/pop-os/cosmic-epoch)
-- Rust 1.82+ (stable)
+- Rust 1.82+ (stable) — only for building from source
 
 ## Installation
+
+### Arch Linux (AUR)
+
+```sh
+git clone https://aur.archlinux.org/cosmic-ext-applet-per-app-layout-bin.git
+cd cosmic-ext-applet-per-app-layout-bin
+makepkg -si
+```
 
 ### From source
 
 ```sh
 git clone https://github.com/utrumo/cosmic-ext-applet-per-app-layout.git
 cd cosmic-ext-applet-per-app-layout
-make install
+make build
+sudo make install
 ```
 
-This builds a release binary, installs it to `~/.local/bin`, registers the
-applet in the COSMIC panel, and sets up the desktop entry and icon.
-
-After installation, restart the panel so it picks up the new applet:
-
-```sh
-killall cosmic-panel
-```
-
-cosmic-session will restart it automatically. Alternatively, log out and log
-back in.
-
-### System-wide installation
-
-```sh
-sudo make PREFIX=/usr install
-```
+This installs the binary to `/usr/bin`, registers the applet in the panel,
+and restarts the panel automatically.
 
 ### Packaging
 
 ```sh
-make DESTDIR=/tmp/pkg PREFIX=/usr install
+make build
+make DESTDIR=/tmp/pkg install
 ```
 
-When `DESTDIR` is set, panel registration and state directory cleanup are
-skipped — the package manager should handle those.
+When `DESTDIR` is set, panel registration is skipped — the package manager
+should handle that.
 
 ### Uninstall
 
 ```sh
-make uninstall
+sudo make uninstall
 ```
 
 ## Usage
