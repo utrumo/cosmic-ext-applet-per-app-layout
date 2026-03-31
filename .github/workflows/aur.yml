@@ -1,8 +1,10 @@
 name: Update AUR
 
 on:
-  release:
-    types: [published]
+  workflow_run:
+    workflows: [Release]
+    types: [completed]
+  workflow_dispatch:
 
 env:
   AUR_PKG: cosmic-ext-applet-per-app-layout-bin
@@ -12,6 +14,7 @@ jobs:
   aur:
     name: Update AUR package
     runs-on: ubuntu-latest
+    if: ${{ github.event_name == 'workflow_dispatch' || github.event.workflow_run.conclusion == 'success' }}
     steps:
       - uses: actions/checkout@v4
 
@@ -23,8 +26,10 @@ jobs:
           echo -e "Host aur.archlinux.org\n  IdentityFile ~/.ssh/aur\n  User aur\n  StrictHostKeyChecking accept-new" > ~/.ssh/config
 
       - name: Get release info
+        env:
+          GH_TOKEN: ${{ github.token }}
         run: |
-          TAG=${GITHUB_REF#refs/tags/}
+          TAG=$(gh release view --json tagName -q .tagName)
           VERSION=${TAG#v}
           ARCHIVE="${BIN_NAME}-${TAG}-x86_64-linux.tar.gz"
           URL="https://github.com/${{ github.repository }}/releases/download/${TAG}/${ARCHIVE}"
