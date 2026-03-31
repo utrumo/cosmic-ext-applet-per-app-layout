@@ -11,7 +11,7 @@ use crate::xkb;
 const APP_ID: &str = "io.github.utrumo.CosmicExtAppletPerAppLayout";
 const STATE_VERSION: u64 = 1;
 
-pub(crate) fn run() -> cosmic::iced::Result {
+pub fn run() -> cosmic::iced::Result {
     cosmic::applet::run::<PerAppLayoutApplet>(())
 }
 
@@ -19,13 +19,13 @@ pub(crate) fn run() -> cosmic::iced::Result {
 struct PerAppLayoutApplet {
     core: Core,
     popup: Option<Id>,
-    layout_map: BTreeMap<String, String>,       // identifier → layout (runtime, per-window)
-    app_names: BTreeMap<String, String>,         // identifier → app_id (for display)
+    layout_map: BTreeMap<String, String>, // identifier → layout (runtime, per-window)
+    app_names: BTreeMap<String, String>,  // identifier → app_id (for display)
     persisted_layouts: BTreeMap<String, String>, // app_id → layout (survives restart)
     config_state: Option<cosmic_config::Config>, // state handle for persistence
-    current_app: Option<String>,                // current identifier
+    current_app: Option<String>,          // current identifier
     current_layout: String,
-    last_write_time: Option<Instant>,           // cooldown after our own xkb writes
+    last_write_time: Option<Instant>, // cooldown after our own xkb writes
 }
 
 #[derive(Debug, Clone)]
@@ -55,17 +55,14 @@ impl Application for PerAppLayoutApplet {
     const APP_ID: &'static str = APP_ID;
 
     fn init(core: Core, _flags: Self::Flags) -> (Self, Task<Message>) {
-        let current_layout = match xkb::read_xkb_config() {
-            Some(cfg) => {
-                let layouts = xkb::available_layouts(&cfg);
-                let active = xkb::active_layout(&cfg).unwrap_or_else(|| "us".to_string());
-                tracing::info!("XKB layouts: {:?}, active: {}", layouts, active);
-                active
-            }
-            None => {
-                tracing::warn!("Could not read XKB config, using defaults");
-                "us".to_string()
-            }
+        let current_layout = if let Some(cfg) = xkb::read_xkb_config() {
+            let layouts = xkb::available_layouts(&cfg);
+            let active = xkb::active_layout(&cfg).unwrap_or_else(|| "us".to_owned());
+            tracing::info!("XKB layouts: {:?}, active: {}", layouts, active);
+            active
+        } else {
+            tracing::warn!("Could not read XKB config, using defaults");
+            "us".to_owned()
         };
 
         let config_state = cosmic_config::Config::new_state(APP_ID, STATE_VERSION).ok();
@@ -75,11 +72,11 @@ impl Application for PerAppLayoutApplet {
             .unwrap_or_default();
         tracing::info!("Loaded {} persisted app layouts", persisted_layouts.len());
 
-        let applet = PerAppLayoutApplet {
+        let applet = Self {
             core,
-            current_layout,
-            config_state,
             persisted_layouts,
+            config_state,
+            current_layout,
             ..Default::default()
         };
         (applet, Task::none())
@@ -111,13 +108,13 @@ impl Application for PerAppLayoutApplet {
                 }
                 let new_id = Id::unique();
                 self.popup.replace(new_id);
-                let popup_settings = self.core.applet.get_popup_settings(
-                    self.core.main_window_id().unwrap(),
-                    new_id,
-                    None,
-                    None,
-                    None,
-                );
+                let Some(main_id) = self.core.main_window_id() else {
+                    return Task::none();
+                };
+                let popup_settings = self
+                    .core
+                    .applet
+                    .get_popup_settings(main_id, new_id, None, None, None);
                 return cosmic::iced::platform_specific::shell::commands::popup::get_popup(
                     popup_settings,
                 );
@@ -176,11 +173,11 @@ impl Application for PerAppLayoutApplet {
                 }
 
                 // Detect layout changes (user toggled via hotkey)
-                if let Some(active) = xkb::read_xkb_config()
-                    .and_then(|cfg| xkb::active_layout(&cfg))
+                if let Some(active) =
+                    xkb::read_xkb_config().and_then(|cfg| xkb::active_layout(&cfg))
                 {
                     if active != self.current_layout {
-                        self.current_layout = active.clone();
+                        self.current_layout.clone_from(&active);
                         // Save for current window (runtime)
                         if let Some(ref id) = self.current_app {
                             self.layout_map.insert(id.clone(), active.clone());
@@ -210,10 +207,7 @@ impl Application for PerAppLayoutApplet {
     fn view_window(&'_ self, _id: Id) -> Element<'_, Message> {
         let mut app_items = Vec::new();
         for (identifier, layout) in &self.layout_map {
-            let display_name = self
-                .app_names
-                .get(identifier)
-                .map_or("?", String::as_str);
+            let display_name = self.app_names.get(identifier).map_or("?", String::as_str);
             let item = cosmic::iced_widget::row![
                 cosmic::widget::text(display_name).width(cosmic::iced::Length::Fill),
                 cosmic::widget::text(layout.to_uppercase()),
@@ -225,10 +219,8 @@ impl Application for PerAppLayoutApplet {
         }
 
         let content = if app_items.is_empty() {
-            cosmic::iced_widget::column![cosmic::widget::text(crate::fl!(
-                "message-no-apps"
-            )),]
-            .padding([16, 12])
+            cosmic::iced_widget::column![cosmic::widget::text(crate::fl!("message-no-apps")),]
+                .padding([16, 12])
         } else {
             cosmic::iced_widget::column(app_items).padding([4, 0])
         };

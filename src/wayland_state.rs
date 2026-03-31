@@ -6,14 +6,14 @@ use cosmic_client_toolkit::{
         registry::{ProvidesRegistryState, RegistryState},
     },
     toplevel_info::{ToplevelInfoHandler, ToplevelInfoState},
-    wayland_client::{Connection, QueueHandle, protocol::wl_output},
+    wayland_client::{protocol::wl_output, Connection, QueueHandle},
     wayland_protocols::ext::foreign_toplevel_list::v1::client::ext_foreign_toplevel_handle_v1,
 };
 use tokio::sync::mpsc;
 
 use crate::wayland_handler::WaylandUpdate;
 
-pub(crate) struct AppData {
+pub struct AppData {
     pub registry_state: RegistryState,
     pub output_state: OutputState,
     pub toplevel_info_state: ToplevelInfoState,
@@ -25,17 +25,22 @@ pub(crate) struct AppData {
 impl AppData {
     fn toplevel_key(app_id: &str, identifier: &str) -> String {
         if identifier.is_empty() {
-            app_id.to_string()
+            app_id.to_owned()
         } else {
-            identifier.to_string()
+            identifier.to_owned()
         }
     }
 
     // Called from ToplevelInfoHandler trait impl (Rust doesn't track cross-impl usage)
     #[allow(dead_code)]
-    fn handle_activated(&mut self, toplevel: &ext_foreign_toplevel_handle_v1::ExtForeignToplevelHandleV1) {
+    fn handle_activated(
+        &mut self,
+        toplevel: &ext_foreign_toplevel_handle_v1::ExtForeignToplevelHandleV1,
+    ) {
         let data = self.toplevel_info_state.info(toplevel).map(|info| {
-            let activated = info.state.contains(&zcosmic_toplevel_handle_v1::State::Activated);
+            let activated = info
+                .state
+                .contains(&zcosmic_toplevel_handle_v1::State::Activated);
             (info.app_id.clone(), info.identifier.clone(), activated)
         });
         if let Some((app_id, identifier, true)) = data {
@@ -64,7 +69,7 @@ impl AppData {
         self.last_focused_app = Some(key.clone());
         self.last_focus_time = Some(now);
         let _ = self.tx.send(WaylandUpdate::Focused {
-            app_id: app_id.to_string(),
+            app_id: app_id.to_owned(),
             identifier: key,
         });
     }
@@ -147,7 +152,9 @@ impl ToplevelInfoHandler for AppData {
         _qh: &QueueHandle<Self>,
         toplevel: &ext_foreign_toplevel_handle_v1::ExtForeignToplevelHandleV1,
     ) {
-        let data = self.toplevel_info_state.info(toplevel)
+        let data = self
+            .toplevel_info_state
+            .info(toplevel)
             .map(|info| (info.app_id.clone(), info.identifier.clone()));
         if let Some((app_id, identifier)) = data {
             self.send_closed(&app_id, &identifier);

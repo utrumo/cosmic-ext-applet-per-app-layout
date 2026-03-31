@@ -7,11 +7,11 @@ use std::time::Duration;
 use cosmic_client_toolkit::{
     sctk::{
         output::OutputState,
-        registry::RegistryState,
         reexports::{calloop, calloop_wayland_source::WaylandSource},
+        registry::RegistryState,
     },
     toplevel_info::ToplevelInfoState,
-    wayland_client::{Connection, globals::registry_queue_init},
+    wayland_client::{globals::registry_queue_init, Connection},
 };
 use tokio::sync::mpsc;
 
@@ -33,6 +33,7 @@ pub fn spawn_wayland_handler(
     })
 }
 
+#[allow(unsafe_code)]
 fn run_wayland_loop(tx: mpsc::UnboundedSender<WaylandUpdate>) -> anyhow::Result<()> {
     let socket = std::env::var("X_PRIVILEGED_WAYLAND_SOCKET")
         .ok()
@@ -62,15 +63,12 @@ fn run_wayland_loop(tx: mpsc::UnboundedSender<WaylandUpdate>) -> anyhow::Result<
     let registry_state = RegistryState::new(&globals);
     let toplevel_info_state = ToplevelInfoState::try_new(&registry_state, &qh);
 
-    let toplevel_info_state = match toplevel_info_state {
-        Some(state) => state,
-        None => {
-            tracing::error!(
-                "zcosmic-toplevel-info protocol not available. \
-                 Is X_PRIVILEGED_WAYLAND_SOCKET set?"
-            );
-            anyhow::bail!("ToplevelInfoState not available");
-        }
+    let Some(toplevel_info_state) = toplevel_info_state else {
+        tracing::error!(
+            "zcosmic-toplevel-info protocol not available. \
+             Is X_PRIVILEGED_WAYLAND_SOCKET set?"
+        );
+        anyhow::bail!("ToplevelInfoState not available");
     };
 
     tracing::info!("Wayland handler started, tracking toplevel focus events");

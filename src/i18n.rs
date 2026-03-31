@@ -1,10 +1,12 @@
-use std::sync::LazyLock;
-use i18n_embed::{DefaultLocalizer, LanguageLoader, Localizer,
-    fluent::{FluentLanguageLoader, fluent_language_loader},
-    unic_langid::LanguageIdentifier};
+use i18n_embed::{
+    fluent::{fluent_language_loader, FluentLanguageLoader},
+    unic_langid::LanguageIdentifier,
+    DefaultLocalizer, LanguageLoader, Localizer,
+};
 use rust_embed::RustEmbed;
+use std::sync::LazyLock;
 
-pub(crate) fn init(requested_languages: &[LanguageIdentifier]) {
+pub fn init(requested_languages: &[LanguageIdentifier]) {
     if let Err(why) = localizer().select(requested_languages) {
         tracing::info!("error while loading fluent localizations: {why}");
     }
@@ -18,9 +20,13 @@ fn localizer() -> Box<dyn Localizer> {
 #[folder = "i18n/"]
 struct Localizations;
 
-pub(crate) static LANGUAGE_LOADER: LazyLock<FluentLanguageLoader> = LazyLock::new(|| {
+pub static LANGUAGE_LOADER: LazyLock<FluentLanguageLoader> = LazyLock::new(|| {
     let loader: FluentLanguageLoader = fluent_language_loader!();
-    loader.load_fallback_language(&Localizations).expect("Failed to load fallback language");
+    // Fallback language (English) is embedded at compile time — load failure is unrecoverable
+    #[allow(clippy::expect_used)]
+    loader
+        .load_fallback_language(&Localizations)
+        .expect("Failed to load fallback language");
     loader
 });
 

@@ -5,6 +5,7 @@ edition = "2021"
 license = "GPL-3.0"
 authors = ["devpa"]
 description = "COSMIC panel applet that remembers keyboard layout for each application"
+repository = "https://github.com/devpa/cosmic-ext-applet-per-app-layout"
 
 [profile.release]
 lto = "fat"
@@ -51,6 +52,59 @@ cosmic-protocols = { git = "https://github.com/pop-os/cosmic-protocols.git", rev
 
 # COSMIC config for xkb_config read/write
 cosmic-config = { git = "https://github.com/pop-os/libcosmic.git", default-features = false }
+
+[lints.rust]
+unsafe_code = "deny"
+unused_imports = "warn"
+unused_variables = "warn"
+dead_code = "warn"
+
+[lints.clippy]
+# Основные группы
+all      = { level = "warn", priority = -1 }
+pedantic = { level = "warn", priority = -1 }
+nursery  = { level = "warn", priority = -1 }
+cargo    = { level = "warn", priority = -1 }
+
+# Явные разрешения (шум > польза)
+option_if_let_else     = "allow"  # nursery: if-let читабельнее map_or_else
+multiple_crate_versions = "allow" # transitive deps от libcosmic
+cargo_common_metadata  = "allow"  # не публикуем на crates.io
+
+# Из группы restriction — обработка ошибок / паника
+unwrap_used             = "warn"
+expect_used             = "warn"
+panic                   = "warn"
+todo                    = "warn"
+unimplemented           = "warn"
+indexing_slicing         = "warn"
+arithmetic_side_effects = "warn"
+as_conversions          = "warn"
+get_unwrap              = "warn"
+map_err_ignore          = "warn"
+try_err                 = "warn"
+
+# Из группы restriction — отладочный код
+dbg_macro               = "warn"
+print_stdout            = "warn"
+print_stderr            = "warn"
+use_debug               = "warn"
+
+# Из группы restriction — безопасность
+undocumented_unsafe_blocks  = "warn"
+rc_buffer                   = "warn"
+rc_mutex                    = "warn"
+exhaustive_enums            = "warn"
+exhaustive_structs          = "warn"
+
+# Из группы restriction — стиль / чистота
+str_to_string               = "warn"
+string_add                  = "warn"
+shadow_unrelated            = "warn"
+redundant_type_annotations  = "warn"
+rest_pat_in_fully_bound_structs = "warn"
+float_arithmetic            = "warn"
+missing_assert_message      = "warn"
 
 [[bin]]
 name = "cosmic-ext-applet-per-app-layout"

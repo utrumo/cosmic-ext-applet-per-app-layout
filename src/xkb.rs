@@ -11,7 +11,7 @@ use serde::{Deserialize, Serialize};
 const COSMIC_COMP_CONFIG: &str = "com.system76.CosmicComp";
 const COSMIC_COMP_VERSION: u64 = 1;
 
-/// Mirror of cosmic-comp-config's XkbConfig.
+/// Mirror of cosmic-comp-config's `XkbConfig`.
 /// We define our own to avoid adding cosmic-comp-config as a dependency.
 /// Fields must match upstream; unknown fields are silently ignored via serde defaults.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
@@ -32,11 +32,11 @@ pub struct XkbConfig {
     pub repeat_rate: u32,
 }
 
-fn default_repeat_rate() -> u32 {
+const fn default_repeat_rate() -> u32 {
     25
 }
 
-fn default_repeat_delay() -> u32 {
+const fn default_repeat_delay() -> u32 {
     600
 }
 
@@ -83,11 +83,11 @@ pub fn write_xkb_config(xkb: &XkbConfig) -> bool {
     true
 }
 
-/// Parse layout string "ru,us" into vec ["ru", "us"].
+/// Parse layout string `"ru,us"` into vec `["ru", "us"]`.
 pub fn available_layouts(xkb: &XkbConfig) -> Vec<String> {
     xkb.layout
         .split(',')
-        .map(|s| s.trim().to_string())
+        .map(|s| s.trim().to_owned())
         .filter(|s| !s.is_empty())
         .collect()
 }
@@ -102,12 +102,12 @@ pub fn active_layout(xkb: &XkbConfig) -> Option<String> {
 fn parse_variants(xkb: &XkbConfig) -> Vec<String> {
     xkb.variant
         .split(',')
-        .map(|s| s.trim().to_string())
+        .map(|s| s.trim().to_owned())
         .collect()
 }
 
 /// Reorder layout and variant strings so that `target_layout` is first.
-/// Returns None if target_layout is not in the available layouts.
+/// Returns None if `target_layout` is not in the available layouts.
 pub fn make_layout_active(xkb: &XkbConfig, target_layout: &str) -> Option<XkbConfig> {
     let layouts = available_layouts(xkb);
     let variants = parse_variants(xkb);
@@ -117,6 +117,8 @@ pub fn make_layout_active(xkb: &XkbConfig, target_layout: &str) -> Option<XkbCon
     let mut new_layouts = Vec::with_capacity(layouts.len());
     let mut new_variants = Vec::with_capacity(layouts.len());
 
+    // idx is valid: it comes from `layouts.iter().position()` above
+    #[allow(clippy::indexing_slicing)]
     new_layouts.push(layouts[idx].clone());
     new_variants.push(variants.get(idx).cloned().unwrap_or_default());
 
@@ -135,13 +137,14 @@ pub fn make_layout_active(xkb: &XkbConfig, target_layout: &str) -> Option<XkbCon
 }
 
 #[cfg(test)]
+#[allow(clippy::unwrap_used)]
 mod tests {
     use super::*;
 
     fn make_xkb(layout: &str, variant: &str) -> XkbConfig {
         XkbConfig {
-            layout: layout.to_string(),
-            variant: variant.to_string(),
+            layout: layout.to_owned(),
+            variant: variant.to_owned(),
             ..Default::default()
         }
     }
@@ -167,7 +170,7 @@ mod tests {
     #[test]
     fn test_active_layout() {
         let xkb = make_xkb("ru,us", ",");
-        assert_eq!(active_layout(&xkb), Some("ru".to_string()));
+        assert_eq!(active_layout(&xkb), Some("ru".to_owned()));
     }
 
     #[test]
