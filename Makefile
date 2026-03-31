@@ -4,9 +4,12 @@ APPID := io.github.utrumo.CosmicExtAppletPerAppLayout
 CARGO_TARGET_DIR ?= target
 BIN_SRC := $(CARGO_TARGET_DIR)/release/$(NAME)
 
+DESTDIR ?=
 PREFIX ?= $(HOME)/.local
-BIN_DST := $(PREFIX)/bin/$(NAME)
 SHARE_DST := $(PREFIX)/share
+
+# Runtime paths (what goes into Exec= and --register)
+BIN_DST := $(PREFIX)/bin/$(NAME)
 DESKTOP_DST := $(SHARE_DST)/applications/$(APPID).desktop
 ICON_DST := $(SHARE_DST)/icons/hicolor/scalable/apps/$(APPID)-symbolic.svg
 
@@ -21,20 +24,20 @@ build:
 
 # Install binary, icon, desktop file, and register in panel
 install: build
-	install -Dm0755 $(BIN_SRC) $(BIN_DST)
-	install -Dm0644 data/$(APPID)-symbolic.svg $(ICON_DST)
-	install -Dm0644 /dev/null $(DESKTOP_DST)
-	sed 's|^Exec=.*|Exec=$(BIN_DST)|' data/$(APPID).desktop > $(DESKTOP_DST)
-	$(BIN_DST) --register
-	@echo "Installed to $(PREFIX)"
+	install -Dm0755 $(BIN_SRC) $(DESTDIR)$(BIN_DST)
+	install -Dm0644 data/$(APPID)-symbolic.svg $(DESTDIR)$(ICON_DST)
+	install -Dm0644 /dev/null $(DESTDIR)$(DESKTOP_DST)
+	sed 's|^Exec=.*|Exec=$(BIN_DST)|' data/$(APPID).desktop > $(DESTDIR)$(DESKTOP_DST)
+	@[ -n "$(DESTDIR)" ] || $(BIN_DST) --register
+	@echo "Installed to $(DESTDIR)$(PREFIX)"
 
 # Unregister from panel, remove files and state
 uninstall:
-	-$(BIN_DST) --unregister
-	rm -f $(BIN_DST)
-	rm -f $(ICON_DST)
-	rm -f $(DESKTOP_DST)
-	rm -rf $(STATE_DIR)
+	@-[ -n "$(DESTDIR)" ] || $(BIN_DST) --unregister
+	rm -f $(DESTDIR)$(BIN_DST)
+	rm -f $(DESTDIR)$(ICON_DST)
+	rm -f $(DESTDIR)$(DESKTOP_DST)
+	@-[ -n "$(DESTDIR)" ] || rm -rf $(STATE_DIR)
 	@echo "Uninstalled $(NAME)"
 	@echo "Run 'killall cosmic-panel' to reload the panel."
 
