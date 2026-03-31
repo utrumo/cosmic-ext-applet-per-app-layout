@@ -50,10 +50,27 @@ jobs:
           sed -i "s/^sha256sums=.*/sha256sums=('${SHA256}')/" PKGBUILD
 
       - name: Generate .SRCINFO
-        uses: docker://archlinux:latest
-        with:
-          entrypoint: bash
-          args: -c "pacman -Sy --noconfirm pacman-contrib && cd aur-repo && makepkg --printsrcinfo > .SRCINFO"
+        run: |
+          cd aur-repo
+          cat > .SRCINFO << SRCINFO
+          pkgbase = ${AUR_PKG}
+          	pkgdesc = COSMIC panel applet that remembers keyboard layout for each application
+          	pkgver = ${VERSION}
+          	pkgrel = 1
+          	url = https://github.com/${{ github.repository }}
+          	install = ${AUR_PKG}.install
+          	arch = x86_64
+          	license = GPL-3.0-only
+          	depends = libxkbcommon
+          	options = !debug
+          	provides = ${BIN_NAME}
+          	conflicts = ${BIN_NAME}
+          	source = https://github.com/${{ github.repository }}/releases/download/v${VERSION}/${BIN_NAME}-v${VERSION}-x86_64-linux.tar.gz
+          	sha256sums = ${SHA256}
+
+          pkgname = ${AUR_PKG}
+          SRCINFO
+          sed -i 's/^          //' .SRCINFO
 
       - name: Push to AUR
         run: |
