@@ -39,7 +39,7 @@ uninstall:
 	rm -f $(DESTDIR)$(DESKTOP_DST)
 	@-[ -n "$(DESTDIR)" ] || rm -rf $(STATE_DIR)
 	@echo "Uninstalled $(NAME)"
-	@echo "Run 'killall cosmic-panel' to reload the panel."
+	@echo "Run 'killall cosmic-panel' to reload the panel (cosmic-session restarts it)."
 
 # Remove build artifacts
 clean:
