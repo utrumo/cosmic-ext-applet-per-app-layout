@@ -1,0 +1,66 @@
+name: Release
+
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+env:
+  CARGO_TERM_COLOR: always
+  BIN_NAME: cosmic-ext-applet-per-app-layout
+  APPID: io.github.utrumo.CosmicExtAppletPerAppLayout
+
+jobs:
+  build:
+    name: Build & Release
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            libxkbcommon-dev libwayland-dev libdbus-1-dev libinput-dev \
+            libfontconfig-dev libfreetype-dev libexpat1-dev libpipewire-0.3-dev \
+            libpulse-dev pkg-config wayland-protocols
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+            target
+          key: release-${{ hashFiles('Cargo.lock') }}
+          restore-keys: release-
+
+      - name: Build
+        run: cargo build --release
+
+      - name: Strip binary
+        run: strip target/release/${{ env.BIN_NAME }}
+
+      - name: Package
+        run: |
+          TAG=${GITHUB_REF#refs/tags/}
+          ARCHIVE="${BIN_NAME}-${TAG}-x86_64-linux.tar.gz"
+          tar czf "${ARCHIVE}" \
+            -C target/release "${BIN_NAME}" \
+            -C "${GITHUB_WORKSPACE}" \
+            LICENSE README.md \
+            "data/${APPID}.desktop" \
+            "data/${APPID}-symbolic.svg"
+          sha256sum "${ARCHIVE}" > "${ARCHIVE}.sha256"
+          echo "ARCHIVE=${ARCHIVE}" >> "$GITHUB_ENV"
+
+      - name: Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: |
+            ${{ env.ARCHIVE }}
+            ${{ env.ARCHIVE }}.sha256
+          generate_release_notes: true
