@@ -1,11 +1,11 @@
 [Desktop Entry]
-Name=Keyboard Context
+Name=Per-App Layout
 Type=Application
-Icon=io.github.utrumo.CosmicKeyboardContext-symbolic
-Exec=cosmic-keyboard-context
+Icon=io.github.utrumo.CosmicExtAppletPerAppLayout-symbolic
+Exec=/home/devpa/.local/bin/cosmic-ext-applet-per-app-layout
 Terminal=false
 NoDisplay=true
 Categories=COSMIC;Utility;
-Keywords=keyboard;layout;language;
+Keywords=keyboard;layout;language;per-app;
 X-CosmicApplet=true
 X-CosmicHoverPopup=Auto

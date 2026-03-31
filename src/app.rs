@@ -8,15 +8,15 @@ use std::time::{Duration, Instant};
 
 use crate::xkb;
 
-const APP_ID: &str = "io.github.utrumo.CosmicKeyboardContext";
+const APP_ID: &str = "io.github.utrumo.CosmicExtAppletPerAppLayout";
 const STATE_VERSION: u64 = 1;
 
 pub(crate) fn run() -> cosmic::iced::Result {
-    cosmic::applet::run::<KeyboardContextApplet>(())
+    cosmic::applet::run::<PerAppLayoutApplet>(())
 }
 
 #[derive(Default)]
-struct KeyboardContextApplet {
+struct PerAppLayoutApplet {
     core: Core,
     popup: Option<Id>,
     layout_map: BTreeMap<String, String>,       // identifier → layout (runtime, per-window)
@@ -37,7 +37,7 @@ pub enum Message {
     PollLayout,
 }
 
-impl KeyboardContextApplet {
+impl PerAppLayoutApplet {
     fn save_persisted_layouts(&self) {
         if let Some(ref config) = self.config_state {
             if let Err(e) = config.set("app_layouts", &self.persisted_layouts) {
@@ -47,7 +47,7 @@ impl KeyboardContextApplet {
     }
 }
 
-impl Application for KeyboardContextApplet {
+impl Application for PerAppLayoutApplet {
     type Executor = cosmic::executor::Default;
     type Message = Message;
     type Flags = ();
@@ -75,7 +75,7 @@ impl Application for KeyboardContextApplet {
             .unwrap_or_default();
         tracing::info!("Loaded {} persisted app layouts", persisted_layouts.len());
 
-        let applet = KeyboardContextApplet {
+        let applet = PerAppLayoutApplet {
             core,
             current_layout,
             config_state,

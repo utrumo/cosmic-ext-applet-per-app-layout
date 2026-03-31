@@ -3,8 +3,8 @@ default: build
 build:
     cargo build --release
 
-export NAME := 'cosmic-keyboard-context'
-export APPID := 'io.github.utrumo.CosmicKeyboardContext'
+export NAME := 'cosmic-ext-applet-per-app-layout'
+export APPID := 'io.github.utrumo.CosmicExtAppletPerAppLayout'
 
 cargo-target-dir := env('CARGO_TARGET_DIR', 'target')
 bin-src := cargo-target-dir / 'release' / NAME
