@@ -2,8 +2,8 @@ use cosmic::app::{Core, Task};
 use cosmic::iced::window::Id;
 use cosmic::iced::Subscription;
 use cosmic::{Application, Element};
-use std::collections::HashMap;
-use std::time::Duration;
+use std::collections::BTreeMap;
+use std::time::{Duration, Instant};
 
 use crate::xkb;
 
@@ -13,14 +13,28 @@ pub(crate) fn run() -> cosmic::iced::Result {
     cosmic::applet::run::<KeyboardContextApplet>(())
 }
 
-#[derive(Default)]
 struct KeyboardContextApplet {
     core: Core,
     popup: Option<Id>,
-    layout_map: HashMap<String, String>,   // identifier → layout
-    app_names: HashMap<String, String>,     // identifier → app_id (for display)
+    layout_map: BTreeMap<String, String>,  // identifier → layout (sorted for popup)
+    app_names: BTreeMap<String, String>,    // identifier → app_id (for display)
     current_app: Option<String>,           // current identifier
     current_layout: String,
+    last_write_time: Option<Instant>,      // cooldown after our own xkb writes
+}
+
+impl Default for KeyboardContextApplet {
+    fn default() -> Self {
+        Self {
+            core: Core::default(),
+            popup: None,
+            layout_map: BTreeMap::new(),
+            app_names: BTreeMap::new(),
+            current_app: None,
+            current_layout: String::new(),
+            last_write_time: None,
+        }
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -28,6 +42,7 @@ pub enum Message {
     ToggleWindow,
     PopupClosed(Id),
     ToplevelFocused { app_id: String, identifier: String },
+    ToplevelClosed(String),
     PollLayout,
 }
 
@@ -103,7 +118,16 @@ impl Application for KeyboardContextApplet {
             Message::ToplevelFocused { app_id, identifier } => {
                 self.app_names.insert(identifier.clone(), app_id.clone());
 
-                // Restore stored layout for this window
+                // Save current layout for the OUTGOING window before switching
+                if let Some(ref old_app) = self.current_app {
+                    self.layout_map
+                        .insert(old_app.clone(), self.current_layout.clone());
+                }
+
+                // Update current_app FIRST so PollLayout won't mis-attribute
+                self.current_app = Some(identifier.clone());
+
+                // Restore stored layout for the incoming window
                 if let Some(desired) = self.layout_map.get(&identifier).cloned() {
                     if desired != self.current_layout {
                         if let Some(cfg) = xkb::read_xkb_config() {
@@ -111,21 +135,32 @@ impl Application for KeyboardContextApplet {
                                 if xkb::write_xkb_config(&new_cfg) {
                                     tracing::info!("Restored '{}' for '{}'", desired, app_id);
                                     self.current_layout = desired;
+                                    self.last_write_time = Some(Instant::now());
                                 }
                             }
                         }
                     }
                 }
-                self.current_app = Some(identifier);
+            }
+            Message::ToplevelClosed(identifier) => {
+                self.layout_map.remove(&identifier);
+                self.app_names.remove(&identifier);
             }
             Message::PollLayout => {
+                // Skip polling during write cooldown to avoid race with our own writes
+                if let Some(t) = self.last_write_time {
+                    if t.elapsed() < Duration::from_millis(500) {
+                        return Task::none();
+                    }
+                }
+
                 // Detect layout changes (user toggled via hotkey)
                 if let Some(active) = xkb::read_xkb_config()
                     .and_then(|cfg| xkb::active_layout(&cfg))
                 {
                     if active != self.current_layout {
                         self.current_layout = active.clone();
-                        // Save for current app
+                        // Save for current window
                         if let Some(ref app) = self.current_app {
                             self.layout_map.insert(app.clone(), active.clone());
                             tracing::info!("Layout → '{}' for '{}'", active, app);
@@ -148,7 +183,8 @@ impl Application for KeyboardContextApplet {
     fn view_window(&'_ self, _id: Id) -> Element<'_, Message> {
         let mut app_items = Vec::new();
         for (identifier, layout) in &self.layout_map {
-            let display_name = self.app_names
+            let display_name = self
+                .app_names
                 .get(identifier)
                 .map(|s| s.as_str())
                 .unwrap_or("?");
@@ -163,13 +199,12 @@ impl Application for KeyboardContextApplet {
         }
 
         let content = if app_items.is_empty() {
-            cosmic::iced_widget::column![
-                cosmic::widget::text("No applications remembered yet"),
-            ]
+            cosmic::iced_widget::column![cosmic::widget::text(crate::fl!(
+                "message-no-apps"
+            )),]
             .padding([16, 12])
         } else {
-            cosmic::iced_widget::column(app_items)
-                .padding([4, 0])
+            cosmic::iced_widget::column(app_items).padding([4, 0])
         };
 
         self.core

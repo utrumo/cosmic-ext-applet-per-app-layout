@@ -24,21 +24,27 @@ pub(crate) struct AppData {
 }
 
 impl AppData {
-    fn send_focus(&mut self, app_id: &str, identifier: &str) {
-        let key = if identifier.is_empty() {
+    fn toplevel_key(app_id: &str, identifier: &str) -> String {
+        if identifier.is_empty() {
             app_id.to_string()
         } else {
             identifier.to_string()
-        };
+        }
+    }
 
-        if self.last_focused_app.as_deref() == Some(&key) {
+    fn send_focus(&mut self, app_id: &str, identifier: &str) {
+        let key = Self::toplevel_key(app_id, identifier);
+
+        // Dedup: skip if same window already focused
+        if self.last_focused_app.as_deref() == Some(&*key) {
             return;
         }
 
-        // Debounce: only first event in 100ms window
+        // Debounce: on multi-monitor, compositor sends Activated for both monitors
+        // in the same batch (~100µs apart). Only accept the first event per batch.
         let now = std::time::Instant::now();
         if let Some(last_time) = self.last_focus_time {
-            if now.duration_since(last_time) < std::time::Duration::from_millis(100) {
+            if now.duration_since(last_time) < std::time::Duration::from_millis(5) {
                 return;
             }
         }
@@ -50,6 +56,12 @@ impl AppData {
             app_id: app_id.to_string(),
             identifier: key,
         });
+    }
+
+    fn send_closed(&self, app_id: &str, identifier: &str) {
+        let key = Self::toplevel_key(app_id, identifier);
+        tracing::debug!("Toplevel closed: id='{}'", key);
+        let _ = self.tx.send(WaylandUpdate::Closed { identifier: key });
     }
 }
 
@@ -133,7 +145,7 @@ impl ToplevelInfoHandler for AppData {
         toplevel: &ext_foreign_toplevel_handle_v1::ExtForeignToplevelHandleV1,
     ) {
         if let Some(info) = self.toplevel_info_state.info(toplevel) {
-            tracing::debug!("Toplevel closed: app_id={}", info.app_id);
+            self.send_closed(&info.app_id, &info.identifier);
         }
     }
 }

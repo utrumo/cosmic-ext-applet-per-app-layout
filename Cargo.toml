@@ -22,7 +22,6 @@ futures = "0.3"
 
 # Serialization
 serde = { version = "1", features = ["derive"] }
-ron = "0.8"
 
 # Error handling
 anyhow = "1"
@@ -46,8 +45,9 @@ rust-embed = { version = "8.11", default-features = false }
 
 # COSMIC Wayland protocols and client toolkit
 # wayland-client, calloop, calloop-wayland-source are re-exported via cosmic-client-toolkit::sctk
-cosmic-client-toolkit = { git = "https://github.com/pop-os/cosmic-protocols.git", default-features = false }
-cosmic-protocols = { git = "https://github.com/pop-os/cosmic-protocols.git", default-features = false }
+# rev must match libcosmic's pin to avoid duplicate crate versions
+cosmic-client-toolkit = { git = "https://github.com/pop-os/cosmic-protocols.git", rev = "160b086", default-features = false }
+cosmic-protocols = { git = "https://github.com/pop-os/cosmic-protocols.git", rev = "160b086", default-features = false }
 
 # COSMIC config for xkb_config read/write
 cosmic-config = { git = "https://github.com/pop-os/libcosmic.git", default-features = false }

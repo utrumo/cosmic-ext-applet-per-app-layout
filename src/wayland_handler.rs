@@ -2,6 +2,7 @@ use std::os::{
     fd::{FromRawFd, RawFd},
     unix::net::UnixStream,
 };
+use std::time::Duration;
 
 use cosmic_client_toolkit::{
     sctk::{
@@ -19,6 +20,7 @@ use crate::wayland_state::AppData;
 #[derive(Debug, Clone)]
 pub enum WaylandUpdate {
     Focused { app_id: String, identifier: String },
+    Closed { identifier: String },
 }
 
 pub fn spawn_wayland_handler(
@@ -35,9 +37,11 @@ fn run_wayland_loop(tx: mpsc::UnboundedSender<WaylandUpdate>) -> anyhow::Result<
     let socket = std::env::var("X_PRIVILEGED_WAYLAND_SOCKET")
         .ok()
         .and_then(|fd| {
-            fd.parse::<RawFd>()
-                .ok()
-                .map(|fd| unsafe { UnixStream::from_raw_fd(fd) })
+            fd.parse::<RawFd>().ok().map(|fd| {
+                // SAFETY: cosmic-panel sets X_PRIVILEGED_WAYLAND_SOCKET to a valid
+                // Wayland socket fd. We take ownership; it will be closed on drop.
+                unsafe { UnixStream::from_raw_fd(fd) }
+            })
         });
 
     let conn = if let Some(socket) = socket {
@@ -85,7 +89,14 @@ fn run_wayland_loop(tx: mpsc::UnboundedSender<WaylandUpdate>) -> anyhow::Result<
         if app_data.exit {
             break;
         }
-        event_loop.dispatch(None, &mut app_data)?;
+        // Timeout allows checking exit flag when tx is dropped (subscription restart)
+        event_loop.dispatch(Some(Duration::from_secs(1)), &mut app_data)?;
+
+        // If the receiver dropped, stop the thread
+        if app_data.tx.is_closed() {
+            tracing::info!("Wayland handler shutting down (channel closed)");
+            break;
+        }
     }
 
     Ok(())

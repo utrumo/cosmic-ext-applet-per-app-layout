@@ -10,13 +10,15 @@ pub fn wayland_subscription() -> Subscription<Message> {
 fn wayland_stream() -> impl futures::Stream<Item = Message> {
     let (tx, rx) = mpsc::unbounded_channel::<WaylandUpdate>();
 
-    // Spawn the wayland handler in a background thread
     spawn_wayland_handler(tx);
 
     futures::stream::unfold(rx, |mut rx: mpsc::UnboundedReceiver<WaylandUpdate>| async move {
         match rx.recv().await {
             Some(WaylandUpdate::Focused { app_id, identifier }) => {
                 Some((Message::ToplevelFocused { app_id, identifier }, rx))
+            }
+            Some(WaylandUpdate::Closed { identifier }) => {
+                Some((Message::ToplevelClosed(identifier), rx))
             }
             None => None,
         }

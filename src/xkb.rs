@@ -1,14 +1,24 @@
 use cosmic_config::{ConfigGet, ConfigSet};
 use serde::{Deserialize, Serialize};
 
+/// Config namespace and version for cosmic-comp. Must match libcosmic's pin.
+const COSMIC_COMP_CONFIG: &str = "com.system76.CosmicComp";
+const COSMIC_COMP_VERSION: u64 = 1;
+
 /// Mirror of cosmic-comp-config's XkbConfig.
 /// We define our own to avoid adding cosmic-comp-config as a dependency.
+/// Fields must match upstream; unknown fields are silently ignored via serde defaults.
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct XkbConfig {
+    #[serde(default)]
     pub rules: String,
+    #[serde(default)]
     pub model: String,
+    #[serde(default)]
     pub layout: String,
+    #[serde(default)]
     pub variant: String,
+    #[serde(default)]
     pub options: Option<String>,
     #[serde(default = "default_repeat_delay")]
     pub repeat_delay: u32,
@@ -40,7 +50,7 @@ impl Default for XkbConfig {
 
 /// Read the current XKB config from cosmic-comp settings.
 pub fn read_xkb_config() -> Option<XkbConfig> {
-    let config = cosmic_config::Config::new("com.system76.CosmicComp", 1).ok()?;
+    let config = cosmic_config::Config::new(COSMIC_COMP_CONFIG, COSMIC_COMP_VERSION).ok()?;
     match config.get::<XkbConfig>("xkb_config") {
         Ok(xkb) => Some(xkb),
         Err(e) => {
@@ -53,7 +63,7 @@ pub fn read_xkb_config() -> Option<XkbConfig> {
 /// Write the XKB config to cosmic-comp settings.
 /// cosmic-comp watches via inotify and applies changes automatically.
 pub fn write_xkb_config(xkb: &XkbConfig) -> bool {
-    let config = match cosmic_config::Config::new("com.system76.CosmicComp", 1) {
+    let config = match cosmic_config::Config::new(COSMIC_COMP_CONFIG, COSMIC_COMP_VERSION) {
         Ok(c) => c,
         Err(e) => {
             tracing::error!("Failed to create cosmic config: {e}");
@@ -82,7 +92,10 @@ pub fn active_layout(xkb: &XkbConfig) -> Option<String> {
 }
 
 fn parse_variants(xkb: &XkbConfig) -> Vec<String> {
-    xkb.variant.split(',').map(|s| s.trim().to_string()).collect()
+    xkb.variant
+        .split(',')
+        .map(|s| s.trim().to_string())
+        .collect()
 }
 
 /// Reorder layout and variant strings so that `target_layout` is first.
@@ -111,4 +124,86 @@ pub fn make_layout_active(xkb: &XkbConfig, target_layout: &str) -> Option<XkbCon
         variant: new_variants.join(","),
         ..xkb.clone()
     })
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    fn make_xkb(layout: &str, variant: &str) -> XkbConfig {
+        XkbConfig {
+            layout: layout.to_string(),
+            variant: variant.to_string(),
+            ..Default::default()
+        }
+    }
+
+    #[test]
+    fn test_available_layouts_two() {
+        let xkb = make_xkb("ru,us", ",");
+        assert_eq!(available_layouts(&xkb), vec!["ru", "us"]);
+    }
+
+    #[test]
+    fn test_available_layouts_single() {
+        let xkb = make_xkb("us", "");
+        assert_eq!(available_layouts(&xkb), vec!["us"]);
+    }
+
+    #[test]
+    fn test_available_layouts_empty() {
+        let xkb = make_xkb("", "");
+        assert!(available_layouts(&xkb).is_empty());
+    }
+
+    #[test]
+    fn test_active_layout() {
+        let xkb = make_xkb("ru,us", ",");
+        assert_eq!(active_layout(&xkb), Some("ru".to_string()));
+    }
+
+    #[test]
+    fn test_active_layout_empty() {
+        let xkb = make_xkb("", "");
+        assert_eq!(active_layout(&xkb), None);
+    }
+
+    #[test]
+    fn test_make_layout_active_swap() {
+        let xkb = make_xkb("ru,us", ",");
+        let result = make_layout_active(&xkb, "us").unwrap();
+        assert_eq!(result.layout, "us,ru");
+        assert_eq!(result.variant, ",");
+    }
+
+    #[test]
+    fn test_make_layout_active_already_first() {
+        let xkb = make_xkb("us,ru", ",");
+        let result = make_layout_active(&xkb, "us").unwrap();
+        assert_eq!(result.layout, "us,ru");
+    }
+
+    #[test]
+    fn test_make_layout_active_not_found() {
+        let xkb = make_xkb("us,ru", ",");
+        assert!(make_layout_active(&xkb, "de").is_none());
+    }
+
+    #[test]
+    fn test_make_layout_active_three_layouts() {
+        let xkb = make_xkb("us,ru,de", ",,nodeadkeys");
+        let result = make_layout_active(&xkb, "de").unwrap();
+        assert_eq!(result.layout, "de,us,ru");
+        assert_eq!(result.variant, "nodeadkeys,,");
+    }
+
+    #[test]
+    fn test_make_layout_active_preserves_other_fields() {
+        let mut xkb = make_xkb("us,ru", ",");
+        xkb.repeat_delay = 300;
+        xkb.repeat_rate = 50;
+        let result = make_layout_active(&xkb, "ru").unwrap();
+        assert_eq!(result.repeat_delay, 300);
+        assert_eq!(result.repeat_rate, 50);
+    }
 }
