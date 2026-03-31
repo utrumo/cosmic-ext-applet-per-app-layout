@@ -18,7 +18,7 @@ per application window.
 - Automatic per-window keyboard layout tracking
 - Layout restored on window focus
 - Detects manual layout changes via polling
-- Persists layouts across restarts (per app\_id via `cosmic-config` state)
+- Persists layouts across restarts (per `app_id` via `cosmic-config` state)
 - Panel button shows the current active layout
 - Popup with a list of remembered applications
 - Multi-monitor support with focus event deduplication
@@ -43,13 +43,14 @@ make install
 This builds a release binary, installs it to `~/.local/bin`, registers the
 applet in the COSMIC panel, and sets up the desktop entry and icon.
 
-After installation, restart the panel:
+After installation, restart the panel so it picks up the new applet:
 
 ```sh
 killall cosmic-panel
 ```
 
-cosmic-session will restart it automatically.
+cosmic-session will restart it automatically. Alternatively, log out and log
+back in.
 
 ### System-wide installation
 
@@ -91,11 +92,13 @@ cosmic-ext-applet-per-app-layout --unregister  # remove from panel
 ## How it works
 
 1. A background thread connects to the Wayland compositor via the
-   `zcosmic-toplevel-info-unstable-v1` protocol and tracks window focus/close
+   `cosmic-toplevel-info-unstable-v1` protocol and tracks window focus/close
    events.
-2. When a window loses focus, the current XKB layout is saved for that window.
-3. When a window gains focus, the saved layout is restored by rewriting
-   `~/.config/cosmic/com.system76.CosmicComp/v1/xkb_config` — the compositor
+2. When a new window gains focus, the current XKB layout is saved for the
+   previously focused window.
+3. When a window gains focus, the saved layout is restored via the
+   `cosmic-config` API (writes to
+   `~/.config/cosmic/com.system76.CosmicComp/v1/xkb_config`) — the compositor
    picks up the change via inotify.
 4. A 250ms polling loop detects manual layout switches so the applet stays in
    sync.
@@ -110,7 +113,7 @@ cargo build --release    # or: make build
 
 ```sh
 make lint     # fast: rustfmt + clippy
-make check    # full: fmt + clippy + cargo-audit + cargo-deny + cargo-udeps
+make check    # full: fmt + clippy + cargo-audit + cargo-deny + cargo-udeps (nightly)
 make fix      # auto-fix formatting and clippy issues
 ```
 
@@ -121,4 +124,4 @@ submitting a pull request.
 
 ## License
 
-[GPL-3.0](https://www.gnu.org/licenses/gpl-3.0.html)
+This project is licensed under the [GPL-3.0](LICENSE).
