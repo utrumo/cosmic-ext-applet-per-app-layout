@@ -2,7 +2,7 @@
 Name=Per-App Layout
 Type=Application
 Icon=io.github.utrumo.CosmicExtAppletPerAppLayout-symbolic
-Exec=/home/devpa/.local/bin/cosmic-ext-applet-per-app-layout
+Exec=cosmic-ext-applet-per-app-layout
 Terminal=false
 NoDisplay=true
 Categories=COSMIC;Utility;

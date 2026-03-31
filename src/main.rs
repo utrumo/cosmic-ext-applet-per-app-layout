@@ -11,6 +11,16 @@ fn main() -> cosmic::iced::Result {
         .with_writer(std::io::stderr)
         .init();
 
+    if std::env::args().any(|a| a == "--register") {
+        app::register();
+        return Ok(());
+    }
+
+    if std::env::args().any(|a| a == "--unregister") {
+        app::unregister();
+        return Ok(());
+    }
+
     let requested_languages = i18n_embed::DesktopLanguageRequester::requested_languages();
     i18n::init(&requested_languages);
 

@@ -4,15 +4,125 @@ use cosmic::iced::Subscription;
 use cosmic::{Application, Element};
 use cosmic_config::{ConfigGet, ConfigSet};
 use std::collections::BTreeMap;
+use std::path::PathBuf;
 use std::time::{Duration, Instant};
 
 use crate::xkb;
 
 const APP_ID: &str = "io.github.utrumo.CosmicExtAppletPerAppLayout";
 const STATE_VERSION: u64 = 1;
+const PANEL_CONFIG_PREFIX: &str = "com.system76.CosmicPanel.";
+const PANEL_CONFIG_VERSION: u64 = 1;
 
 pub fn run() -> cosmic::iced::Result {
     cosmic::applet::run::<PerAppLayoutApplet>(())
+}
+
+const MAIN_PANEL_CONFIG: &str = "com.system76.CosmicPanel.Panel";
+
+/// Add this applet to the right wing of the main COSMIC panel.
+pub fn register() {
+    let Ok(config) = cosmic_config::Config::new(MAIN_PANEL_CONFIG, PANEL_CONFIG_VERSION) else {
+        tracing::error!("Cannot open {MAIN_PANEL_CONFIG} config");
+        return;
+    };
+
+    let mut wings: Option<(Vec<String>, Vec<String>)> = config
+        .get("plugins_wings")
+        .unwrap_or_else(|_| Some((Vec::new(), Vec::new())));
+
+    let pair = wings.get_or_insert_with(|| (Vec::new(), Vec::new()));
+
+    if pair.0.iter().any(|s| s == APP_ID) || pair.1.iter().any(|s| s == APP_ID) {
+        tracing::info!("Already registered in {MAIN_PANEL_CONFIG}");
+        return;
+    }
+
+    pair.1.insert(0, APP_ID.to_owned());
+
+    if let Err(e) = config.set("plugins_wings", &wings) {
+        tracing::error!("Failed to register in {MAIN_PANEL_CONFIG}: {e}");
+    } else {
+        tracing::info!("Registered in right wing of {MAIN_PANEL_CONFIG}");
+    }
+}
+
+/// Remove this applet from all COSMIC panel configurations.
+///
+/// Scans `$XDG_CONFIG_HOME/cosmic/com.system76.CosmicPanel.*/` and removes
+/// `APP_ID` from `plugins_wings` and `plugins_center` using the same
+/// `cosmic_config` API that wrote them — no manual RON parsing needed.
+pub fn unregister() {
+    let cosmic_dir = cosmic_config_dir();
+    let Ok(entries) = std::fs::read_dir(&cosmic_dir) else {
+        tracing::warn!("Cannot read {}", cosmic_dir.display());
+        return;
+    };
+
+    for entry in entries.filter_map(Result::ok) {
+        let name = entry.file_name();
+        let Some(name) = name.to_str() else { continue };
+        if !name.starts_with(PANEL_CONFIG_PREFIX) {
+            continue;
+        }
+
+        let Ok(config) = cosmic_config::Config::new(name, PANEL_CONFIG_VERSION) else {
+            continue;
+        };
+
+        unregister_from_wings(&config, name);
+        unregister_from_center(&config, name);
+    }
+}
+
+fn cosmic_config_dir() -> PathBuf {
+    std::env::var("XDG_CONFIG_HOME")
+        .map_or_else(
+            |_| {
+                let home = std::env::var("HOME").unwrap_or_else(|_| String::from("/root"));
+                PathBuf::from(home).join(".config")
+            },
+            PathBuf::from,
+        )
+        .join("cosmic")
+}
+
+fn unregister_from_wings(config: &cosmic_config::Config, panel_name: &str) {
+    let Ok(mut wings) = config.get::<Option<(Vec<String>, Vec<String>)>>("plugins_wings") else {
+        return;
+    };
+
+    let Some(ref mut pair) = wings else { return };
+    let left_before = pair.0.len();
+    let right_before = pair.1.len();
+    pair.0.retain(|s| s != APP_ID);
+    pair.1.retain(|s| s != APP_ID);
+
+    if pair.0.len() < left_before || pair.1.len() < right_before {
+        if let Err(e) = config.set("plugins_wings", &wings) {
+            tracing::error!("Failed to update plugins_wings for {panel_name}: {e}");
+        } else {
+            tracing::info!("Removed from plugins_wings in {panel_name}");
+        }
+    }
+}
+
+fn unregister_from_center(config: &cosmic_config::Config, panel_name: &str) {
+    let Ok(mut center) = config.get::<Option<Vec<String>>>("plugins_center") else {
+        return;
+    };
+
+    let Some(ref mut list) = center else { return };
+    let before = list.len();
+    list.retain(|s| s != APP_ID);
+
+    if list.len() < before {
+        if let Err(e) = config.set("plugins_center", &center) {
+            tracing::error!("Failed to update plugins_center for {panel_name}: {e}");
+        } else {
+            tracing::info!("Removed from plugins_center in {panel_name}");
+        }
+    }
 }
 
 #[derive(Default)]
