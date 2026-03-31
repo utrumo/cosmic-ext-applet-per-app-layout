@@ -173,8 +173,7 @@ impl Application for KeyboardContextApplet {
             let display_name = self
                 .app_names
                 .get(identifier)
-                .map(|s| s.as_str())
-                .unwrap_or("?");
+                .map_or("?", String::as_str);
             let item = cosmic::iced_widget::row![
                 cosmic::widget::text(display_name).width(cosmic::iced::Length::Fill),
                 cosmic::widget::text(layout.to_uppercase()),

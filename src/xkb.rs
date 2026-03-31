@@ -97,6 +97,8 @@ pub fn active_layout(xkb: &XkbConfig) -> Option<String> {
     available_layouts(xkb).into_iter().next()
 }
 
+/// Empty strings are kept (unlike `available_layouts`) because "" is a valid
+/// "no variant" value in XKB, while "" is not a valid layout name.
 fn parse_variants(xkb: &XkbConfig) -> Vec<String> {
     xkb.variant
         .split(',')

@@ -10,7 +10,9 @@ pub fn wayland_subscription() -> Subscription<Message> {
 fn wayland_stream() -> impl futures::Stream<Item = Message> {
     let (tx, rx) = mpsc::unbounded_channel::<WaylandUpdate>();
 
-    spawn_wayland_handler(tx);
+    // Thread exits when tx is closed (subscription dropped); JoinHandle intentionally
+    // not stored — the thread is fire-and-forget for the applet's lifetime.
+    let _handle = spawn_wayland_handler(tx);
 
     futures::stream::unfold(rx, |mut rx: mpsc::UnboundedReceiver<WaylandUpdate>| async move {
         match rx.recv().await {

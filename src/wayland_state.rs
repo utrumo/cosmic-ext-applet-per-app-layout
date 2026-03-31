@@ -69,9 +69,13 @@ impl AppData {
         });
     }
 
-    fn send_closed(&self, app_id: &str, identifier: &str) {
+    fn send_closed(&mut self, app_id: &str, identifier: &str) {
         let key = Self::toplevel_key(app_id, identifier);
         tracing::debug!("Toplevel closed: id='{}'", key);
+        // Clear dedup state so reopened window with same identifier isn't suppressed
+        if self.last_focused_app.as_deref() == Some(&*key) {
+            self.last_focused_app = None;
+        }
         let _ = self.tx.send(WaylandUpdate::Closed { identifier: key });
     }
 }
@@ -143,8 +147,10 @@ impl ToplevelInfoHandler for AppData {
         _qh: &QueueHandle<Self>,
         toplevel: &ext_foreign_toplevel_handle_v1::ExtForeignToplevelHandleV1,
     ) {
-        if let Some(info) = self.toplevel_info_state.info(toplevel) {
-            self.send_closed(&info.app_id, &info.identifier);
+        let data = self.toplevel_info_state.info(toplevel)
+            .map(|info| (info.app_id.clone(), info.identifier.clone()));
+        if let Some((app_id, identifier)) = data {
+            self.send_closed(&app_id, &identifier);
         }
     }
 }
