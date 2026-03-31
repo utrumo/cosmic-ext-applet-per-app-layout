@@ -2,12 +2,14 @@ use cosmic::app::{Core, Task};
 use cosmic::iced::window::Id;
 use cosmic::iced::Subscription;
 use cosmic::{Application, Element};
+use cosmic_config::{ConfigGet, ConfigSet};
 use std::collections::BTreeMap;
 use std::time::{Duration, Instant};
 
 use crate::xkb;
 
 const APP_ID: &str = "io.github.utrumo.CosmicKeyboardContext";
+const STATE_VERSION: u64 = 1;
 
 pub(crate) fn run() -> cosmic::iced::Result {
     cosmic::applet::run::<KeyboardContextApplet>(())
@@ -17,11 +19,13 @@ pub(crate) fn run() -> cosmic::iced::Result {
 struct KeyboardContextApplet {
     core: Core,
     popup: Option<Id>,
-    layout_map: BTreeMap<String, String>,  // identifier → layout (sorted for popup)
-    app_names: BTreeMap<String, String>,    // identifier → app_id (for display)
-    current_app: Option<String>,           // current identifier
+    layout_map: BTreeMap<String, String>,       // identifier → layout (runtime, per-window)
+    app_names: BTreeMap<String, String>,         // identifier → app_id (for display)
+    persisted_layouts: BTreeMap<String, String>, // app_id → layout (survives restart)
+    config_state: Option<cosmic_config::Config>, // state handle for persistence
+    current_app: Option<String>,                // current identifier
     current_layout: String,
-    last_write_time: Option<Instant>,      // cooldown after our own xkb writes
+    last_write_time: Option<Instant>,           // cooldown after our own xkb writes
 }
 
 #[derive(Debug, Clone)]
@@ -31,6 +35,16 @@ pub enum Message {
     ToplevelFocused { app_id: String, identifier: String },
     ToplevelClosed(String),
     PollLayout,
+}
+
+impl KeyboardContextApplet {
+    fn save_persisted_layouts(&self) {
+        if let Some(ref config) = self.config_state {
+            if let Err(e) = config.set("app_layouts", &self.persisted_layouts) {
+                tracing::warn!("Failed to save app layouts: {e}");
+            }
+        }
+    }
 }
 
 impl Application for KeyboardContextApplet {
@@ -54,9 +68,18 @@ impl Application for KeyboardContextApplet {
             }
         };
 
+        let config_state = cosmic_config::Config::new_state(APP_ID, STATE_VERSION).ok();
+        let persisted_layouts = config_state
+            .as_ref()
+            .and_then(|s| s.get::<BTreeMap<String, String>>("app_layouts").ok())
+            .unwrap_or_default();
+        tracing::info!("Loaded {} persisted app layouts", persisted_layouts.len());
+
         let applet = KeyboardContextApplet {
             core,
             current_layout,
+            config_state,
+            persisted_layouts,
             ..Default::default()
         };
         (applet, Task::none())
@@ -114,8 +137,14 @@ impl Application for KeyboardContextApplet {
                 // Update current_app FIRST so PollLayout won't mis-attribute
                 self.current_app = Some(identifier.clone());
 
-                // Restore stored layout for the incoming window
-                if let Some(desired) = self.layout_map.get(&identifier).cloned() {
+                // Restore stored layout: runtime map first, then persisted by app_id
+                let desired = self
+                    .layout_map
+                    .get(&identifier)
+                    .or_else(|| self.persisted_layouts.get(&app_id))
+                    .cloned();
+
+                if let Some(desired) = desired {
                     if desired != self.current_layout {
                         if let Some(cfg) = xkb::read_xkb_config() {
                             if let Some(new_cfg) = xkb::make_layout_active(&cfg, &desired) {
@@ -147,10 +176,16 @@ impl Application for KeyboardContextApplet {
                 {
                     if active != self.current_layout {
                         self.current_layout = active.clone();
-                        // Save for current window
-                        if let Some(ref app) = self.current_app {
-                            self.layout_map.insert(app.clone(), active.clone());
-                            tracing::debug!("Layout → '{}' for '{}'", active, app);
+                        // Save for current window (runtime)
+                        if let Some(ref id) = self.current_app {
+                            self.layout_map.insert(id.clone(), active.clone());
+                            // Save by app_id (persistent)
+                            if let Some(app_id) = self.app_names.get(id) {
+                                self.persisted_layouts
+                                    .insert(app_id.clone(), active.clone());
+                                self.save_persisted_layouts();
+                            }
+                            tracing::debug!("Layout → '{}' for '{}'", active, id);
                         }
                     }
                 }
