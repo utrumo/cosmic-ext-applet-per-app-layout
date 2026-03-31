@@ -1,0 +1,61 @@
+name: Update AUR
+
+on:
+  release:
+    types: [published]
+
+env:
+  AUR_PKG: cosmic-ext-applet-per-app-layout-bin
+  BIN_NAME: cosmic-ext-applet-per-app-layout
+
+jobs:
+  aur:
+    name: Update AUR package
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup SSH
+        run: |
+          mkdir -p ~/.ssh
+          echo "${{ secrets.AUR_SSH_KEY }}" > ~/.ssh/aur
+          chmod 600 ~/.ssh/aur
+          echo -e "Host aur.archlinux.org\n  IdentityFile ~/.ssh/aur\n  User aur\n  StrictHostKeyChecking accept-new" > ~/.ssh/config
+
+      - name: Get release info
+        run: |
+          TAG=${GITHUB_REF#refs/tags/}
+          VERSION=${TAG#v}
+          ARCHIVE="${BIN_NAME}-${TAG}-x86_64-linux.tar.gz"
+          URL="https://github.com/${{ github.repository }}/releases/download/${TAG}/${ARCHIVE}"
+          curl -sL "${URL}" -o "${ARCHIVE}"
+          SHA256=$(sha256sum "${ARCHIVE}" | cut -d' ' -f1)
+          echo "VERSION=${VERSION}" >> "$GITHUB_ENV"
+          echo "SHA256=${SHA256}" >> "$GITHUB_ENV"
+
+      - name: Clone AUR repo
+        run: git clone ssh://aur@aur.archlinux.org/${AUR_PKG}.git aur-repo
+
+      - name: Update PKGBUILD
+        run: |
+          cd aur-repo
+          cp ../aur/PKGBUILD .
+          cp ../aur/${AUR_PKG}.install .
+          sed -i "s/^pkgver=.*/pkgver=${VERSION}/" PKGBUILD
+          sed -i "s/^sha256sums=.*/sha256sums=('${SHA256}')/" PKGBUILD
+
+      - name: Generate .SRCINFO
+        uses: docker://archlinux:latest
+        with:
+          entrypoint: bash
+          args: -c "pacman -Sy --noconfirm pacman-contrib && cd aur-repo && makepkg --printsrcinfo > .SRCINFO"
+
+      - name: Push to AUR
+        run: |
+          cd aur-repo
+          git config user.name "github-actions"
+          git config user.email "github-actions@utrumo"
+          git add PKGBUILD .SRCINFO ${AUR_PKG}.install
+          git diff --cached --quiet && echo "No changes" && exit 0
+          git commit -m "Update to ${VERSION}"
+          git push

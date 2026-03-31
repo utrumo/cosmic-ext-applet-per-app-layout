@@ -48,12 +48,11 @@ jobs:
         run: |
           TAG=${GITHUB_REF#refs/tags/}
           ARCHIVE="${BIN_NAME}-${TAG}-x86_64-linux.tar.gz"
-          tar czf "${ARCHIVE}" \
-            -C target/release "${BIN_NAME}" \
-            -C "${GITHUB_WORKSPACE}" \
-            LICENSE README.md \
-            "data/${APPID}.desktop" \
-            "data/${APPID}-symbolic.svg"
+          STAGE=$(mktemp -d)
+          cp target/release/${BIN_NAME} "${STAGE}/"
+          cp LICENSE README.md "${STAGE}/"
+          cp "data/${APPID}.desktop" "data/${APPID}-symbolic.svg" "${STAGE}/"
+          tar czf "${ARCHIVE}" -C "${STAGE}" .
           sha256sum "${ARCHIVE}" > "${ARCHIVE}.sha256"
           echo "ARCHIVE=${ARCHIVE}" >> "$GITHUB_ENV"
 
