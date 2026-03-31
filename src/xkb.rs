@@ -14,7 +14,7 @@ const COSMIC_COMP_VERSION: u64 = 1;
 /// Mirror of cosmic-comp-config's XkbConfig.
 /// We define our own to avoid adding cosmic-comp-config as a dependency.
 /// Fields must match upstream; unknown fields are silently ignored via serde defaults.
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct XkbConfig {
     #[serde(default)]
     pub rules: String,
