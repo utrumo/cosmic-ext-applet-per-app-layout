@@ -5,16 +5,12 @@ CARGO_TARGET_DIR ?= target
 BIN_SRC := $(CARGO_TARGET_DIR)/release/$(NAME)
 
 DESTDIR ?=
-PREFIX ?= $(HOME)/.local
+PREFIX ?= /usr
 SHARE_DST := $(PREFIX)/share
 
-# Runtime paths (what goes into Exec= and --register)
 BIN_DST := $(PREFIX)/bin/$(NAME)
 DESKTOP_DST := $(SHARE_DST)/applications/$(APPID).desktop
 ICON_DST := $(SHARE_DST)/icons/hicolor/scalable/apps/$(APPID)-symbolic.svg
-
-STATE_HOME ?= $(or $(XDG_STATE_HOME),$(HOME)/.local/state)
-STATE_DIR := $(STATE_HOME)/cosmic/$(APPID)
 
 .PHONY: build install uninstall clean check fmt clippy audit deny udeps lint fix
 
@@ -23,23 +19,30 @@ build:
 	cargo build --release
 
 # Install binary, icon, desktop file, and register in panel
-install: build
+install:
+	@[ -f $(BIN_SRC) ] || { echo "Run 'make build' first"; exit 1; }
 	install -Dm0755 $(BIN_SRC) $(DESTDIR)$(BIN_DST)
 	install -Dm0644 data/$(APPID)-symbolic.svg $(DESTDIR)$(ICON_DST)
-	install -Dm0644 /dev/null $(DESTDIR)$(DESKTOP_DST)
-	sed 's|^Exec=.*|Exec=$(BIN_DST)|' data/$(APPID).desktop > $(DESTDIR)$(DESKTOP_DST)
-	@[ -n "$(DESTDIR)" ] || $(BIN_DST) --register
+	install -Dm0644 data/$(APPID).desktop $(DESTDIR)$(DESKTOP_DST)
+	@if [ -z "$(DESTDIR)" ] && [ -n "$$SUDO_USER" ]; then \
+	    su "$$SUDO_USER" -c "$(BIN_DST) --register"; \
+	    su "$$SUDO_USER" -c "killall cosmic-panel 2>/dev/null || true"; \
+	  elif [ -z "$(DESTDIR)" ]; then \
+	    echo "Run '$(NAME) --register && killall cosmic-panel' to activate."; \
+	  fi
 	@echo "Installed to $(DESTDIR)$(PREFIX)"
 
-# Unregister from panel, remove files and state
+# Unregister from panel and remove files
 uninstall:
-	@-[ -n "$(DESTDIR)" ] || $(BIN_DST) --unregister
+	@-if [ -z "$(DESTDIR)" ] && [ -n "$$SUDO_USER" ]; then \
+	    su "$$SUDO_USER" -c "$(BIN_DST) --unregister" || true; \
+	    STATE_DIR=$$(su "$$SUDO_USER" -c 'echo $${XDG_STATE_HOME:-$$HOME/.local/state}')/cosmic/$(APPID); \
+	    rm -rf "$$STATE_DIR" 2>/dev/null || true; \
+	  fi
 	rm -f $(DESTDIR)$(BIN_DST)
 	rm -f $(DESTDIR)$(ICON_DST)
 	rm -f $(DESTDIR)$(DESKTOP_DST)
-	@-[ -n "$(DESTDIR)" ] || rm -rf $(STATE_DIR)
 	@echo "Uninstalled $(NAME)"
-	@echo "Run 'killall cosmic-panel' to reload the panel (cosmic-session restarts it)."
 
 # Remove build artifacts
 clean:
