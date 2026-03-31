@@ -145,6 +145,11 @@ impl Application for KeyboardContextApplet {
                     .cloned();
 
                 if let Some(desired) = desired {
+                    // Seed runtime map so subsequent focus switches skip persisted lookup
+                    self.layout_map
+                        .entry(identifier)
+                        .or_insert_with(|| desired.clone());
+
                     if desired != self.current_layout {
                         if let Some(cfg) = xkb::read_xkb_config() {
                             if let Some(new_cfg) = xkb::make_layout_active(&cfg, &desired) {
