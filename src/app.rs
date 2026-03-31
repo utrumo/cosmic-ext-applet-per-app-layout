@@ -13,6 +13,7 @@ pub(crate) fn run() -> cosmic::iced::Result {
     cosmic::applet::run::<KeyboardContextApplet>(())
 }
 
+#[derive(Default)]
 struct KeyboardContextApplet {
     core: Core,
     popup: Option<Id>,
@@ -21,20 +22,6 @@ struct KeyboardContextApplet {
     current_app: Option<String>,           // current identifier
     current_layout: String,
     last_write_time: Option<Instant>,      // cooldown after our own xkb writes
-}
-
-impl Default for KeyboardContextApplet {
-    fn default() -> Self {
-        Self {
-            core: Core::default(),
-            popup: None,
-            layout_map: BTreeMap::new(),
-            app_names: BTreeMap::new(),
-            current_app: None,
-            current_layout: String::new(),
-            last_write_time: None,
-        }
-    }
 }
 
 #[derive(Debug, Clone)]
@@ -133,7 +120,7 @@ impl Application for KeyboardContextApplet {
                         if let Some(cfg) = xkb::read_xkb_config() {
                             if let Some(new_cfg) = xkb::make_layout_active(&cfg, &desired) {
                                 if xkb::write_xkb_config(&new_cfg) {
-                                    tracing::info!("Restored '{}' for '{}'", desired, app_id);
+                                    tracing::debug!("Restored '{}' for '{}'", desired, app_id);
                                     self.current_layout = desired;
                                     self.last_write_time = Some(Instant::now());
                                 }
@@ -163,7 +150,7 @@ impl Application for KeyboardContextApplet {
                         // Save for current window
                         if let Some(ref app) = self.current_app {
                             self.layout_map.insert(app.clone(), active.clone());
-                            tracing::info!("Layout → '{}' for '{}'", active, app);
+                            tracing::debug!("Layout → '{}' for '{}'", active, app);
                         }
                     }
                 }

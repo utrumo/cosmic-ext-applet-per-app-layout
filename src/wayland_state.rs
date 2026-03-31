@@ -14,7 +14,6 @@ use tokio::sync::mpsc;
 use crate::wayland_handler::WaylandUpdate;
 
 pub(crate) struct AppData {
-    pub exit: bool,
     pub registry_state: RegistryState,
     pub output_state: OutputState,
     pub toplevel_info_state: ToplevelInfoState,
@@ -32,16 +31,28 @@ impl AppData {
         }
     }
 
+    // Called from ToplevelInfoHandler trait impl (Rust doesn't track cross-impl usage)
+    #[allow(dead_code)]
+    fn handle_activated(&mut self, toplevel: &ext_foreign_toplevel_handle_v1::ExtForeignToplevelHandleV1) {
+        let data = self.toplevel_info_state.info(toplevel).map(|info| {
+            let activated = info.state.contains(&zcosmic_toplevel_handle_v1::State::Activated);
+            (info.app_id.clone(), info.identifier.clone(), activated)
+        });
+        if let Some((app_id, identifier, true)) = data {
+            self.send_focus(&app_id, &identifier);
+        }
+    }
+
     fn send_focus(&mut self, app_id: &str, identifier: &str) {
         let key = Self::toplevel_key(app_id, identifier);
 
-        // Dedup: skip if same window already focused
         if self.last_focused_app.as_deref() == Some(&*key) {
             return;
         }
 
-        // Debounce: on multi-monitor, compositor sends Activated for both monitors
-        // in the same batch (~100µs apart). Only accept the first event per batch.
+        // Multi-monitor: compositor sends Activated for both monitors in the same
+        // batch (~100µs apart). 5ms window catches duplicates without dropping
+        // real user focus switches (>>50ms apart).
         let now = std::time::Instant::now();
         if let Some(last_time) = self.last_focus_time {
             if now.duration_since(last_time) < std::time::Duration::from_millis(5) {
@@ -49,7 +60,7 @@ impl AppData {
             }
         }
 
-        tracing::info!("Focus: app_id='{}', id='{}'", app_id, key);
+        tracing::debug!("Focus: app_id='{}', id='{}'", app_id, key);
         self.last_focused_app = Some(key.clone());
         self.last_focus_time = Some(now);
         let _ = self.tx.send(WaylandUpdate::Focused {
@@ -114,13 +125,7 @@ impl ToplevelInfoHandler for AppData {
         _qh: &QueueHandle<Self>,
         toplevel: &ext_foreign_toplevel_handle_v1::ExtForeignToplevelHandleV1,
     ) {
-        let data = self.toplevel_info_state.info(toplevel).map(|info| {
-            let activated = info.state.contains(&zcosmic_toplevel_handle_v1::State::Activated);
-            (info.app_id.clone(), info.identifier.clone(), activated)
-        });
-        if let Some((app_id, identifier, true)) = data {
-            self.send_focus(&app_id, &identifier);
-        }
+        self.handle_activated(toplevel);
     }
 
     fn update_toplevel(
@@ -129,13 +134,7 @@ impl ToplevelInfoHandler for AppData {
         _qh: &QueueHandle<Self>,
         toplevel: &ext_foreign_toplevel_handle_v1::ExtForeignToplevelHandleV1,
     ) {
-        let data = self.toplevel_info_state.info(toplevel).map(|info| {
-            let activated = info.state.contains(&zcosmic_toplevel_handle_v1::State::Activated);
-            (info.app_id.clone(), info.identifier.clone(), activated)
-        });
-        if let Some((app_id, identifier, true)) = data {
-            self.send_focus(&app_id, &identifier);
-        }
+        self.handle_activated(toplevel);
     }
 
     fn toplevel_closed(

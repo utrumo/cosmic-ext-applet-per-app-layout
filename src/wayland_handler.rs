@@ -76,7 +76,6 @@ fn run_wayland_loop(tx: mpsc::UnboundedSender<WaylandUpdate>) -> anyhow::Result<
     tracing::info!("Wayland handler started, tracking toplevel focus events");
 
     let mut app_data = AppData {
-        exit: false,
         registry_state,
         output_state: OutputState::new(&globals, &qh),
         toplevel_info_state,
@@ -86,13 +85,9 @@ fn run_wayland_loop(tx: mpsc::UnboundedSender<WaylandUpdate>) -> anyhow::Result<
     };
 
     loop {
-        if app_data.exit {
-            break;
-        }
-        // Timeout allows checking exit flag when tx is dropped (subscription restart)
+        // Timeout allows detecting channel closure (subscription restart)
         event_loop.dispatch(Some(Duration::from_secs(1)), &mut app_data)?;
 
-        // If the receiver dropped, stop the thread
         if app_data.tx.is_closed() {
             tracing::info!("Wayland handler shutting down (channel closed)");
             break;

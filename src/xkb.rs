@@ -1,3 +1,9 @@
+//! XKB keyboard layout management via cosmic-config.
+//!
+//! Mirrors cosmic-comp's `XkbConfig` struct to read/write layout configuration.
+//! The active layout is determined by position: the first entry in the comma-separated
+//! `layout` string is active. Switching layouts means reordering the string.
+
 use cosmic_config::{ConfigGet, ConfigSet};
 use serde::{Deserialize, Serialize};
 
