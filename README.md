@@ -81,8 +81,25 @@ should handle that.
 
 ### Uninstall
 
+AUR:
+
+```sh
+sudo pacman -Rsn cosmic-ext-applet-per-app-layout-bin
+```
+
+From source:
+
 ```sh
 sudo make uninstall
+```
+
+Pre-built binary:
+
+```sh
+cosmic-ext-applet-per-app-layout --unregister
+sudo rm /usr/bin/cosmic-ext-applet-per-app-layout
+sudo rm /usr/share/applications/io.github.utrumo.CosmicExtAppletPerAppLayout.desktop
+sudo rm /usr/share/icons/hicolor/scalable/apps/io.github.utrumo.CosmicExtAppletPerAppLayout-symbolic.svg
 ```
 
 ## Usage
