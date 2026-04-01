@@ -41,9 +41,6 @@ jobs:
       - name: Build
         run: cargo build --release
 
-      - name: Strip binary
-        run: strip target/release/${{ env.BIN_NAME }}
-
       - name: Package
         run: |
           TAG=${GITHUB_REF#refs/tags/}

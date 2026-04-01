@@ -33,7 +33,7 @@ jobs:
           VERSION=${TAG#v}
           ARCHIVE="${BIN_NAME}-${TAG}-x86_64-linux.tar.gz"
           URL="https://github.com/${{ github.repository }}/releases/download/${TAG}/${ARCHIVE}"
-          curl -sL "${URL}" -o "${ARCHIVE}"
+          curl -sfL "${URL}" -o "${ARCHIVE}"
           SHA256=$(sha256sum "${ARCHIVE}" | cut -d' ' -f1)
           echo "VERSION=${VERSION}" >> "$GITHUB_ENV"
           echo "SHA256=${SHA256}" >> "$GITHUB_ENV"
@@ -49,6 +49,8 @@ jobs:
           sed -i "s/^pkgver=.*/pkgver=${VERSION}/" PKGBUILD
           sed -i "s/^sha256sums=.*/sha256sums=('${SHA256}')/" PKGBUILD
 
+      # NOTE: .SRCINFO is generated inline because makepkg cannot run as root.
+      # If PKGBUILD fields change (e.g. new depends/optdepends), update this template too.
       - name: Generate .SRCINFO
         run: |
           cd aur-repo

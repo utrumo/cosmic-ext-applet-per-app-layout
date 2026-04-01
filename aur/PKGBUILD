@@ -1,5 +1,5 @@
 pkgname=cosmic-ext-applet-per-app-layout-bin
-pkgver=0.2.0
+pkgver=0.2.1
 pkgrel=1
 pkgdesc="COSMIC panel applet that remembers keyboard layout for each application"
 arch=('x86_64')

@@ -2,7 +2,7 @@
 name = "cosmic-ext-applet-per-app-layout"
 version = "0.2.1"
 edition = "2021"
-license = "GPL-3.0"
+license = "GPL-3.0-only"
 authors = ["utrumo"]
 description = "COSMIC panel applet that remembers keyboard layout for each application"
 repository = "https://github.com/utrumo/cosmic-ext-applet-per-app-layout"
