@@ -7,7 +7,7 @@ A [COSMIC](https://github.com/pop-os/cosmic-epoch) panel applet that remembers k
 ## Problem
 
 COSMIC Desktop uses a single global keyboard layout. When you switch between
-applications, the layout stays the same — so if you were typing in Russian in
+applications, the layout stays the same — so if you are typing in Russian in
 one app and switch to a terminal, you have to change the layout manually.
 
 This applet fixes that by automatically saving and restoring the keyboard layout
@@ -100,6 +100,7 @@ cosmic-ext-applet-per-app-layout --unregister
 sudo rm /usr/bin/cosmic-ext-applet-per-app-layout
 sudo rm /usr/share/applications/io.github.utrumo.CosmicExtAppletPerAppLayout.desktop
 sudo rm /usr/share/icons/hicolor/scalable/apps/io.github.utrumo.CosmicExtAppletPerAppLayout-symbolic.svg
+rm -rf "${XDG_STATE_HOME:-$HOME/.local/state}/cosmic/io.github.utrumo.CosmicExtAppletPerAppLayout"
 ```
 
 ## Usage
