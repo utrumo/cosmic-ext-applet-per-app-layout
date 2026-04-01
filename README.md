@@ -34,10 +34,27 @@ per application window.
 
 ### Arch Linux (AUR)
 
+[![AUR version](https://img.shields.io/aur/version/cosmic-ext-applet-per-app-layout-bin)](https://aur.archlinux.org/packages/cosmic-ext-applet-per-app-layout-bin)
+
 ```sh
 git clone https://aur.archlinux.org/cosmic-ext-applet-per-app-layout-bin.git
 cd cosmic-ext-applet-per-app-layout-bin
 makepkg -si
+```
+
+### Pre-built binary
+
+Download the latest release from
+[GitHub Releases](https://github.com/utrumo/cosmic-ext-applet-per-app-layout/releases),
+then extract and install:
+
+```sh
+tar xzf cosmic-ext-applet-per-app-layout-v*.tar.gz
+sudo install -Dm0755 cosmic-ext-applet-per-app-layout /usr/bin/cosmic-ext-applet-per-app-layout
+sudo install -Dm0644 io.github.utrumo.CosmicExtAppletPerAppLayout.desktop /usr/share/applications/io.github.utrumo.CosmicExtAppletPerAppLayout.desktop
+sudo install -Dm0644 io.github.utrumo.CosmicExtAppletPerAppLayout-symbolic.svg /usr/share/icons/hicolor/scalable/apps/io.github.utrumo.CosmicExtAppletPerAppLayout-symbolic.svg
+cosmic-ext-applet-per-app-layout --register
+killall cosmic-panel
 ```
 
 ### From source
