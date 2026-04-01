@@ -69,16 +69,6 @@ sudo make install
 This installs the binary to `/usr/bin`, registers the applet in the panel,
 and restarts the panel automatically.
 
-### Packaging
-
-```sh
-make build
-make DESTDIR=/tmp/pkg install
-```
-
-When `DESTDIR` is set, panel registration is skipped — the package manager
-should handle that.
-
 ### Uninstall
 
 AUR:
@@ -101,6 +91,20 @@ sudo rm /usr/bin/cosmic-ext-applet-per-app-layout
 sudo rm /usr/share/applications/io.github.utrumo.CosmicExtAppletPerAppLayout.desktop
 sudo rm /usr/share/icons/hicolor/scalable/apps/io.github.utrumo.CosmicExtAppletPerAppLayout-symbolic.svg
 rm -rf "${XDG_STATE_HOME:-$HOME/.local/state}/cosmic/io.github.utrumo.CosmicExtAppletPerAppLayout"
+```
+
+### Packaging
+
+For distribution maintainers creating packages (`.deb`, `.rpm`, etc.).
+`DESTDIR` redirects all installed files into a staging directory instead of
+the real filesystem — the package manager then bundles that directory into a
+package. Panel registration is automatically skipped when `DESTDIR` is set.
+
+```sh
+make build
+make DESTDIR=/tmp/pkg install
+# Files are now in /tmp/pkg/usr/bin/, /tmp/pkg/usr/share/...
+# Ready to be packaged by dpkg-deb, rpmbuild, makepkg, etc.
 ```
 
 ## Usage
